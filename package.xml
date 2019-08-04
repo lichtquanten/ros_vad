@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>ros_vad</name>
+  <version>0.0.0</version>
+  <description>The ros_vad package</description>
+
+  <maintainer email="sean@hackett.pw">Sean Hackett</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>audio_io_msgs</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+  <exec_depend>python-webrtcvad</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>rospy_wrapper</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <export>
+  </export>
+</package>
