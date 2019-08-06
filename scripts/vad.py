@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from ros_vad.grouper import BlockArrLike, Neighborhood
+from audio_io.utils import width_to_dtype
 import numpy as np
 import rospy
 from rospywrapper import TopicSource
@@ -8,18 +8,9 @@ import webrtcvad
 from audio_io_msgs.msg import AudioData
 from std_msgs.msg import Header
 
-ALGORITHMS=("webrtcvad", "volume", "energy")
+from ros_vad.grouper import BlockArrLike, Neighborhood
 
-def width_to_dtype(width):
-    if width == 1:
-        return np.int8
-    if width == 2:
-        return np.int16
-    if width == 4:
-        return np.int32
-    if width == 8:
-        return np.int64
-    return None
+ALGORITHMS=("webrtcvad", "volume", "energy")
 
 def main():
     # Get parameters
