@@ -104,8 +104,8 @@ def main():
                             rospy.loginfo('Mean: {}'.format(mean))
                         valid = mean >= threshold
                     elif algorithm == "energy":
-                        # Convert to float [0, 1]
-                        fr = (fr / (np.iinfo(dtype).max * 2.)) + 0.5
+                        # Convert to float [-1, 1]
+                        fr = (fr / float(np.iinfo(dtype).max))
                         energy = np.mean(np.square(fr))
                         if calibrate:
                             rospy.loginfo('Energy: {}'.format(energy))
