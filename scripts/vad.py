@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from ros_vad.grouper import Block, Neighborhood
+from ros_vad.grouper import BlockArrLike, Neighborhood
 import numpy as np
 import rospy
 from rospywrapper import TopicSource
@@ -9,11 +9,6 @@ from audio_io_msgs.msg import AudioData
 from std_msgs.msg import Header
 
 ALGORITHMS=("webrtcvad", "volume", "energy")
-
-def flatten(barrays):
-    return bytearray(
-        b for arr in barrays for b in arr
-    )
 
 def width_to_dtype(width):
     if width == 1:
@@ -59,7 +54,7 @@ def main():
     source = TopicSource(input_topic, AudioData)
     with source:
         # Initialize a buffer for complete utterances
-        complete_buffer = []
+        complete_buffer = np.array([], np.uint8)
         complete_buffer_t = None
 
         initialized = False
@@ -78,10 +73,13 @@ def main():
                 if msg.num_channels != 1:
                     raise Exception("Only single channel audio supported.")
 
+                # Find numpy data type
+                dtype = width_to_dtype(msg.sample_width)
+
                 # Factor of 2 for sample width of 2
                 # Initialize frame buffer
                 frame_length = int(msg.sample_rate * (frame_duration / 1000.)) * 2
-                frames = Block(frame_length)
+                frames = BlockArrLike(frame_length, np.array([], np.uint8), np.append)
 
                 def is_valid(nbhd):
                     valids = [valid for frame, valid in nbhd]
@@ -95,7 +93,7 @@ def main():
             )
 
             # Add message's data to frames buffer
-            frames.put(list(bytearray(msg.data)), msg.header.stamp, msg.header.stamp + duration)
+            frames.put(np.array(bytearray(msg.data)), msg.header.stamp, msg.header.stamp + duration)
 
             # Analyze frames and add to neighborhood
             for frame, start, end in frames:
@@ -105,8 +103,7 @@ def main():
                     if calibrate:
                         rospy.loginfo('Frame is speech?: {}'.format(valid))
                 else:
-                    # Convert to numpy array
-                    dtype = width_to_dtype(msg.sample_width)
+                    # Convert to array of samples
                     fr = np.frombuffer(fr, dtype)
                     if algorithm == "volume":
                         mean = np.mean(np.abs(fr))
@@ -124,43 +121,44 @@ def main():
                         valid = energy >= threshold
                 nbhds.put((frame, valid), start, end)
 
-            chunk_buffer = []
+            chunk_buffer = np.array([], np.uint8)
             chunk_buffer_t = None
             for (frame, _), is_in_speech, t, _ in nbhds:
                 if verbose and is_in_speech:
                     rospy.loginfo('Frame is in utterance.')
                 if not is_in_speech:
-                    if chunk_buffer:
+                    if chunk_buffer.size > 0:
                         # Flatten the bytearrays
-                        data = str(flatten(chunk_buffer))
+                        data = str(bytearray(chunk_buffer))
+                        print data
                         # Construct a message
                         msg.header = Header()
                         msg.header.stamp = chunk_buffer_t
                         msg.data = data
                         pub_chunks.publish(msg)
-                        chunk_buffer = []
+                        chunk_buffer = np.array([], np.uint8)
                         chunk_buffer_t = None
-                    if complete_buffer:
+                    if complete_buffer.size > 0:
                         # Flatten the bytearrays
-                        data = str(flatten(complete_buffer))
+                        data = str(bytearray(complete_buffer))
                         # Construct a message
                         msg.header = Header()
                         msg.header.stamp = complete_buffer_t
                         msg.data = data
                         pub_complete.publish(msg)
-                        complete_buffer = []
+                        complete_buffer = np.array([], np.uint8)
                         complete_buffer_t = None
                 else:
-                    chunk_buffer.append(frame)
+                    chunk_buffer = np.append(chunk_buffer, frame)
                     if not chunk_buffer_t:
                         chunk_buffer_t = t
-                    complete_buffer.append(frame)
+                    complete_buffer = np.append(complete_buffer, frame)
                     if not complete_buffer_t:
                         complete_buffer_t = t
 
-            if chunk_buffer:
+            if chunk_buffer.size > 0:
                 # Flatten the bytearrays
-                data = str(flatten(chunk_buffer))
+                data = str(bytearray(chunk_buffer))
                 # Construct a message
                 msg.header = Header()
                 msg.header.stamp = chunk_buffer_t
@@ -168,9 +166,9 @@ def main():
                 pub_chunks.publish(msg)
                 chunk_buffer = []
                 chunk_buffer_t = None
-        if complete_buffer:
+        if complete_buffer.size > 0:
             # Flatten the bytearrays
-            data = str(flatten(complete_buffer))
+            data = str(bytearray(complete_buffer))
             # Construct a message
             msg.header = Header()
             msg.header.stamp = complete_buffer_t
